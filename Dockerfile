@@ -1,16 +1,3 @@
-## Build Rclone
-FROM golang AS rclone_builder
-
-COPY ./rclone /go/src/github.com/rclone/rclone/
-WORKDIR /go/src/github.com/rclone/rclone/
-
-RUN make quicktest
-RUN \
-  CGO_ENABLED=0 \
-  make
-RUN ./rclone version
-
-## Build final image
 FROM alpine:3.20.3
 
 LABEL maintainer nagra-insight-bot@nagra.com
@@ -35,9 +22,7 @@ ENV RCLONE_REMOTE "aws1"
 
 WORKDIR /tmp
 
-RUN apk add --no-cache --update ca-certificates bash curl inotify-tools openssl fuse
-
-COPY --from=rclone_builder /go/src/github.com/rclone/rclone/rclone /usr/local/bin/
+RUN apk add --no-cache --update ca-certificates bash curl inotify-tools openssl fuse rclone
 
 ADD docker-entrypoint.sh /docker-entrypoint.sh
 
