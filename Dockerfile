@@ -11,7 +11,7 @@ RUN \
 RUN ./rclone version
 
 ## Build final image
-FROM alpine:3.10
+FROM alpine:3.20.3
 
 LABEL maintainer nagra-insight-bot@nagra.com
 
