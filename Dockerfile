@@ -13,7 +13,7 @@ RUN ./rclone version
 ## Build final image
 FROM alpine:3.10
 
-LABEL maintainer docker@dbc.company
+LABEL maintainer nagra-insight-bot@nagra.com
 
 # The authorization header to use when calling the Nexus API.
 ENV NEXUS_AUTHORIZATION "Basic YWRtaW46YWRtaW4xMjMK"
