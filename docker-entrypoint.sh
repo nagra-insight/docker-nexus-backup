@@ -20,18 +20,6 @@ function backup {
     # The timestamp of the backup (we chose ISO-8601 for clarity).
     TIMESTAMP="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-    # Make sure every Groovy script necessary for backup is installed.
-    find /scripts -name "*.groovy" | while read -r FILE;
-    do
-        ensure_groovy_script "${FILE}";
-    done
-
-    echo "==> Attempting to stop repositories.";
-    manage_repos stop
-
-    echo "==> Sleeping for ${GRACE_PERIOD} seconds."
-    sleep "${GRACE_PERIOD}"
-
     echo "==> Attempting to backup the 'default' blobstore."
     tar c "${NEXUS_DATA_DIRECTORY}/blobs/default/" | rclone rcat "${RCLONE_REMOTE}:${TARGET_BUCKET}/${TIMESTAMP}/blobstore.tar" --streaming-upload-cutoff ${STREAMING_UPLOAD_CUTOFF}
 
@@ -55,52 +43,8 @@ function backup {
         echo "(✓) Databases successfully backed-up."
     fi
 
-    echo "==> Attempting to start repositories."
-    manage_repos start
-
     # Remove the lock file...
     rm -f "${LOCK_FILE}"
-}
-
-function ensure_groovy_script {
-    local BODY;
-    local NAME;
-
-    # Remove line breaks from the script.
-    BODY=$(tr -d '\n' < "${1}")
-    # Get the script's filename without extension.
-    NAME=$(basename "${1}" .groovy)
-
-    # Delete any previously existing script.
-    curl -H "Authorization: ${NEXUS_AUTHORIZATION}" \
-      -o /dev/null \
-      -s \
-      -w "${http_code}" \
-      -X DELETE \
-      "${NEXUS_LOCAL_HOST_PORT}/service/rest/v1/script/${NAME}/"
-
-    # Install the script.
-    curl -d "{\"name\":\"${NAME}\",\"type\":\"groovy\",\"content\":\"${BODY}\"}" \
-      -H "Authorization: ${NEXUS_AUTHORIZATION}" \
-      -H 'Content-Type: application/json' \
-      -s \
-      -S \
-      -X POST \
-      "${NEXUS_LOCAL_HOST_PORT}/service/rest/v1/script/"
-}
-
-function manage_repos { # Supported actions are 'start' and 'stop'.
-    local REPOS=($OFFLINE_REPOS)
-    
-    for repo in "${REPOS[@]}";
-    do
-       curl -d "${repo}" \
-            -H "Authorization: ${NEXUS_AUTHORIZATION}" \
-            -H "Content-Type: text/plain" \
-            -s \
-            -X POST \
-            "${NEXUS_LOCAL_HOST_PORT}/service/rest/v1/script/${1}-repository/run" > /dev/null
-    done
 }
 
 function maybe_start_backup {
@@ -159,12 +103,6 @@ function monitor_lock_file {
     done
 }
 
-if [[ -z "${NEXUS_AUTHORIZATION}" ]];
-then
-    echo "Nexus authorization token is not defined."
-    exit 1
-fi
-
 if [[ ! -d "${NEXUS_BACKUP_DIRECTORY}" ]];
 then
     echo "Backup directory not present. Is the volume mounted?"
@@ -186,12 +124,6 @@ fi
 if [[ -z "${TARGET_BUCKET}" ]];
 then
     echo "Target bucket is not defined."
-    exit 1
-fi
-
-if [[ -z "${GRACE_PERIOD}" ]];
-then
-    echo "Grace period is not defined."
     exit 1
 fi
 
